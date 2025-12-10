@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Jace Grant – Resume</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Optional: Google Font (still a single HTML file) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+  <style>
+    :root {
+      --byu-navy: #002e5d;
+      --byu-royal: #0059a4;
+      --byu-gray: #f3f4f6;
+      --byu-dark-gray: #4b5563;
+      --white: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Montserrat", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background: #e5e7eb;
+      color: #111827;
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 40px auto;
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    header {
+      background: radial-gradient(circle at top left, var(--byu-royal), var(--byu-navy));
+      color: var(--white);
+      padding: 28px 32px 24px;
+      text-align: center;
+      position: relative;
+    }
+
+    .byu-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .byu-logo img {
+      height: 56px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+    }
+
+    .header-text h1 {
+      font-size: 2rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .header-text h2 {
+      font-size: 1rem;
+      font-weight: 400;
+      margin-top: 6px;
+      opacity: 0.9;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .tagline {
+      margin-top: 12px;
+      font-size: 0.9rem;
+      opacity: 0.95;
+    }
+
+    .header-divider {
+      margin: 18px auto 0;
+      width: 160px;
+      height: 3px;
+      border-radius: 999px;
+      background: linear-gradient(to right, #ffffff, #d1d5db, #ffffff);
+      opacity: 0.9;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1.1fr 2fr;
+      gap: 24px;
+      padding: 24px 32px 32px;
+    }
+
+    /* LEFT COLUMN */
+
+    .sidebar {
+      border-right: 1px solid #e5e7eb;
+      padding-right: 12px;
+    }
+
+    .profile-photo-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .profile-photo {
+      width: 170px;
+      height: 170px;
+      border-radius: 999px;
+      overflow: hidden;
+      border: 4px solid var(--white);
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+      background: #cbd5f5;
+    }
+
+    .profile-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sidebar-section {
+      margin-bottom: 20px;
+    }
+
+    .sidebar-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--byu-navy);
+      margin-bottom: 8px;
+    }
+
+    .contact-list {
+      list-style: none;
+      font-size: 0.9rem;
+      color: var(--byu-dark-gray);
+    }
+
+    .contact-list li + li {
+      margin-top: 6px;
+    }
+
+    .contact-label {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .pill {
+      background: var(--byu-gray);
+      color: var(--byu-dark-gray);
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    /* RIGHT COLUMN */
+
+    .main-section + .main-section {
+      margin-top: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: var(--byu-navy);
+      font-weight: 700;
+    }
+
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        rgba(148, 163, 184, 0.9),
+        rgba(229, 231, 235, 0.4)
+      );
+    }
+
+    .item {
+      margin-top: 8px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .item-title {
+      font-weight: 600;
+      color: #111827;
+      font-size: 0.98rem;
+    }
+
+    .item-subtitle {
+      font-size: 0.9rem;
+      color: var(--byu-dark-gray);
+      font-weight: 500;
+    }
+
+    .item-dates {
+      font-size: 0.82rem;
+      color: #6b7280;
+      white-space: nowrap;
+    }
+
+    .item-location {
+      font-size: 0.82rem;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+
+    .item-body {
+      margin-top: 6px;
+    }
+
+    .item-body ul {
+      margin-left: 18px;
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: #374151;
+    }
+
+    .item-body li + li {
+      margin-top: 3px;
+    }
+
+    .two-column-list {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 14px;
+      font-size: 0.9rem;
+      color: #374151;
+    }
+
+    .two-column-list ul {
+      margin-left: 16px;
+      margin-top: 4px;
+    }
+
+    a {
+      color: var(--byu-royal);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* RESPONSIVE */
+
+    @media (max-width: 840px) {
+      .content {
+        grid-template-columns: 1fr;
+        padding: 20px 18px 24px;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding-right: 0;
+        padding-bottom: 18px;
+        margin-bottom: 8px;
+      }
+
+      .two-column-list {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        margin: 16px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      header {
+        padding: 20px 16px 18px;
+      }
+
+      .header-text h1 {
+        font-size: 1.3rem;
+      }
+
+      .header-text h2 {
+        font-size: 0.85rem;
+      }
+
+      .header-divider {
+        width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="byu-logo">
+        <!-- BYU logo file -->
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/BYU_Cougars_logo.svg/1280px-BYU_Cougars_logo.svg.png" alt="BYU Logo" />
+      </div>
+      <div class="header-text">
+        <h1>JACE GRANT</h1>
+        <h2>Brigham Young University · Entrepreneurial Management (Intended)</h2>
+        <p class="tagline">
+          BYU student-athlete with experience in sales, entrepreneurship, and service.
+        </p>
+      </div>
+      <div class="header-divider"></div>
+    </header>
+
+    <main class="content">
+      <!-- LEFT COLUMN -->
+      <aside class="sidebar">
+        <div class="profile-photo-wrapper">
+          <div class="profile-photo">
+            <!-- Your photo file -->
+            <img src="https://bloximages.chicago2.vip.townnews.com/trib.com/content/tncms/assets/v3/editorial/4/6a/46a627b2-9122-11ed-a6ae-83174ffbe044/63bdc57b94033.image.jpg?resize=434%2C500" alt="Photo of Jace Grant" />
+          </div>
+        </div>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-title">Contact</h3>
+          <ul class="contact-list">
+            <li>
+              <span class="contact-label">Email:</span>
+              <a href="mailto:Jacer4@byu.edu">Jacer4@byu.edu</a>
+            </li>
+            <li>
+              <span class="contact-label">Phone:</span>
+              (307) 250-9841
+            </li>
+            <li>
+              <span class="contact-label">Location:</span>
+              Provo, Utah, USA
+            </li>
+            <li>
+              <span class="contact-label">Instagram:</span>
+              <a href="https://instagram.com/jacer__man" target="_blank">
+                @jacer__man
+              </a>
+            </li>
+          </ul>
+        </section>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-title">Core Skills</h3>
+          <div class="pill-group">
+            <span class="pill">Team Leadership</span>
+            <span class="pill">Spanish – Advanced</span>
+            <span class="pill">Entrepreneurship</span>
+            <span class="pill">Customer Service</span>
+            <span class="pill">Time Management</span>
+            <span class="pill">Public Speaking</span>
+          </div>
+        </section>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-title">Technical</h3>
+          <div class="pill-group">
+            <span class="pill">Excel &amp; Google Sheets</span>
+            <span class="pill">Tableau / Data Viz</span>
+            <span class="pill">SQL Basics</span>
+            <span class="pill">HTML &amp; CSS</span>
+            <span class="pill">Canva / Procreate</span>
+          </div>
+        </section>
+
+        <section class="sidebar-section">
+          <h3 class="sidebar-title">Interests</h3>
+          <div class="pill-group">
+            <span class="pill">Rugby</span>
+            <span class="pill">Cars</span>
+            <span class="pill">Travel</span>
+            <span class="pill">Fitness</span>
+            <span class="pill">Music</span>
+          </div>
+        </section>
+      </aside>
+
+      <!-- RIGHT COLUMN -->
+      <section>
+        <!-- EDUCATION -->
+        <section class="main-section">
+          <div class="section-header">
+            <h3 class="section-title">Education</h3>
+            <div class="section-line"></div>
+          </div>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Brigham Young University (BYU)</div>
+                <div class="item-subtitle">Intended B.S. – Entrepreneurial Management</div>
+              </div>
+              <div class="item-dates">Sept. 2025 – Present</div>
+            </div>
+            <div class="item-location">Provo, Utah</div>
+            <div class="item-body">
+              <ul>
+                <li>Current GPA: 4.00.</li>
+                <li>BYU Men's Rugby student-athlete, developing teamwork, discipline, and high-level performance.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Cody High School</div>
+                <div class="item-subtitle">High School Diploma</div>
+              </div>
+              <div class="item-dates">May 2023</div>
+            </div>
+            <div class="item-location">Cody, Wyoming</div>
+            <div class="item-body">
+              <ul>
+                <li>High school student, athlete, and leader.</li>
+                <li>Vice President, Cody C.A.N. Board.</li>
+                <li>All-State Football and Wrestling; Super 25; 2023 3A Lineman of the Year.</li>
+                <li>4× Wyoming Allstate Choir.</li>
+              </ul>
+            </div>
+          </article>
+        </section>
+
+        <!-- EXPERIENCE -->
+        <section class="main-section">
+          <div class="section-header">
+            <h3 class="section-title">Experience</h3>
+            <div class="section-line"></div>
+          </div>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Entrepreneur · Self-Employed</div>
+                <div class="item-subtitle">Sneaker &amp; Car Resale</div>
+              </div>
+              <div class="item-dates">Childhood – Present</div>
+            </div>
+            <div class="item-location">Wyoming &amp; Utah</div>
+            <div class="item-body">
+              <ul>
+                <li>Developed an entrepreneurial mindset from a young age, starting by selling sneakers to classmates.</li>
+                <li>Expanded into fixing and selling cars, turning a passion for automotive work into consistent cashflow.</li>
+                <li>Identified undervalued vehicles, completed basic repairs and improvements, and marketed them for profit.</li>
+                <li>Built negotiation, pricing, and customer service skills while creating value for buyers.</li>
+              </ul>
+            </div>
+          </article>
+        </section>
+
+        <!-- LEADERSHIP & SERVICE -->
+        <section class="main-section">
+          <div class="section-header">
+            <h3 class="section-title">Leadership &amp; Service</h3>
+            <div class="section-line"></div>
+          </div>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Volunteer Missionary</div>
+                <div class="item-subtitle">The Church of Jesus Christ of Latter-day Saints</div>
+              </div>
+              <div class="item-dates">July 2023 – July 2025</div>
+            </div>
+            <div class="item-location">Medellín, Colombia</div>
+            <div class="item-body">
+              <ul>
+                <li>Served full-time, teaching, serving, and supporting individuals and families in Spanish.</li>
+                <li>Held leadership roles including Assistant to the President, Zone Leader, and District Leader.</li>
+                <li>Coordinated missionary teams, set goals, trained peers, and tracked progress across assigned areas.</li>
+                <li>Developed high-level fluency in Spanish and cross-cultural communication skills.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Counselor</div>
+                <div class="item-subtitle">Charles Campbell Children's Camp</div>
+              </div>
+              <div class="item-dates">5 Years</div>
+            </div>
+            <div class="item-location">[Location]</div>
+            <div class="item-body">
+              <ul>
+                <li>Supported children with disabilities in overcoming obstacles and having fun while camping.</li>
+                <li>Created a safe, inclusive environment and encouraged personal growth and confidence.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="item">
+            <div class="item-header">
+              <div>
+                <div class="item-title">Vice President</div>
+                <div class="item-subtitle">Cody C.A.N. Board</div>
+              </div>
+              <div class="item-dates">—</div>
+            </div>
+            <div class="item-location">Cody, Wyoming</div>
+            <div class="item-body">
+              <ul>
+                <li>Helped lead a non-profit focused on helping students in Park County School District #6 avoid drug and alcohol use.</li>
+                <li>Organized and promoted fun activities and awareness events to encourage healthy, substance-free lifestyles.</li>
+              </ul>
+            </div>
+          </article>
+        </section>
+
+        <!-- AWARDS & ACHIEVEMENTS -->
+        <section class="main-section">
+          <div class="section-header">
+            <h3 class="section-title">Awards &amp; Achievements</h3>
+            <div class="section-line"></div>
+          </div>
+
+          <article class="item">
+            <div class="two-column-list">
+              <div>
+                <ul>
+                  <li>BYU Academic Scholarship (2025).</li>
+                  <li>Honor Roll – Cody High School (2023).</li>
+                  <li>Two-time Wyoming Allstate Football.</li>
+                </ul>
+              </div>
+              <div>
+                <ul>
+                  <li>2023 Wyoming Super 25.</li>
+                  <li>Two-time Wyoming Allstate Wrestling.</li>
+                  <li>4× Wyoming Allstate Choir.</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- SKILLS SUMMARY -->
+        <section class="main-section">
+          <div class="section-header">
+            <h3 class="section-title">Summary of Strengths</h3>
+            <div class="section-line"></div>
+          </div>
+
+          <article class="item">
+            <div class="item-body">
+              <p>
+                BYU student-athlete with a strong entrepreneurial mindset and a track record of leadership and service.
+                Experienced in creating value through sneaker and car resale, leading peers in mission and non-profit
+                settings, and performing at a high level in academics and athletics. Comfortable working in fast-paced,
+                team-oriented environments and communicating effectively in both English and Spanish.
+              </p>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Beginner Onewheel Tricks Guide</title>
+
+  <!-- Sporty squared-off font -->
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-dark: #0c1117;
+      --bg-panel: #141b23;
+      --electric-blue: #00b8ff;
+      --electric-blue-soft: #0096d6;
+      --text-main: #ffffff;
+      --text-muted: #cbd5f5;
+      --accent: #f9fafb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Rajdhani", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #001829 0, #020617 40%, #000000 100%);
+      color: var(--text-main);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    a {
+      color: var(--electric-blue);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    header {
+      border-bottom: 2px solid rgba(148, 163, 184, 0.4);
+      background: linear-gradient(90deg, rgba(0,184,255,0.16), transparent);
+      backdrop-filter: blur(8px);
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.75rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .site-title {
+      font-size: 2.2rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .site-subtitle {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding: 0.15rem 0.8rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--electric-blue);
+      box-shadow: 0 0 10px var(--electric-blue);
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 3rem;
+      display: grid;
+      gap: 2rem;
+    }
+
+    /* INTRO SECTION */
+
+    .intro {
+      display: grid;
+      gap: 1.8rem;
+    }
+
+    .intro-main {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 2rem;
+      align-items: center;
+    }
+
+    .intro-text {
+      max-width: 720px;
+    }
+
+    .intro-text h2 {
+      font-size: 1.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      margin-bottom: 0.75rem;
+      color: var(--electric-blue);
+    }
+
+    .intro-text p {
+      color: var(--text-muted);
+      font-size: 0.98rem;
+    }
+
+    .intro-image-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    .intro-image-wrap img {
+      max-width: 100%;
+      border-radius: 1.25rem;
+      box-shadow:
+        0 20px 40px rgba(15, 23, 42, 0.9),
+        0 0 28px rgba(56, 189, 248, 0.3);
+    }
+
+    @media (max-width: 880px) {
+      .intro-main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .intro-image-wrap {
+        order: 2;
+      }
+    }
+
+    .safety-callout {
+      border-radius: 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 60%);
+      padding: 1.2rem 1.4rem;
+      font-size: 0.95rem;
+      color: var(--accent);
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .safety-title {
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.8rem;
+      color: var(--electric-blue);
+    }
+
+    .safety-list {
+      margin-left: 1.2rem;
+      list-style: square;
+      color: var(--text-muted);
+    }
+
+    /* TRICKS + SIDEBAR */
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 2rem;
+    }
+
+    @media (max-width: 880px) {
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .trick-card {
+      background: var(--bg-panel);
+      border-radius: 1.25rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 1.5rem 1.6rem 1.4rem;
+      box-shadow:
+        0 20px 30px rgba(15, 23, 42, 0.8),
+        0 0 24px rgba(56, 189, 248, 0.06);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .trick-card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .trick-card-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .trick-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .trick-name {
+      font-size: 1.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      margin-bottom: 0.6rem;
+      color: var(--accent);
+    }
+
+    .difficulty {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      padding: 0.12rem 0.7rem 0.18rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-bottom: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .difficulty span {
+      font-weight: 700;
+      color: var(--electric-blue);
+    }
+
+    .trick-description {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .steps-title {
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      color: var(--electric-blue-soft);
+      margin-bottom: 0.25rem;
+    }
+
+    .steps {
+      list-style: disc;
+      margin-left: 1.2rem;
+      font-size: 0.93rem;
+      color: var(--accent);
+    }
+
+    .steps li + li {
+      margin-top: 0.28rem;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.65rem;
+      font-style: italic;
+    }
+
+    .links-row {
+      margin-top: 0.85rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      font-size: 0.87rem;
+    }
+
+    .pill-link {
+      border-radius: 999px;
+      padding: 0.25rem 0.9rem 0.35rem;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: rgba(15, 23, 42, 0.9);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .pill-link span.icon {
+      font-size: 0.95rem;
+      opacity: 0.8;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 1.4rem;
+      align-content: flex-start;
+    }
+
+    .module {
+      background: var(--bg-panel);
+      border-radius: 1.25rem;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      padding: 1.3rem 1.4rem 1.25rem;
+      box-shadow: 0 16px 30px rgba(15, 23, 42, 0.75);
+    }
+
+    .module-title {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 0.55rem;
+      color: var(--accent);
+    }
+
+    .module p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .module ul {
+      margin-top: 0.4rem;
+      margin-left: 1.1rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      list-style: square;
+    }
+
+    .module ul li + li {
+      margin-top: 0.25rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 0.75rem;
+      padding: 0.35rem 1rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--electric-blue);
+      background: linear-gradient(90deg, var(--electric-blue), var(--electric-blue-soft));
+      color: #020617;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      box-shadow:
+        0 0 16px rgba(56, 189, 248, 0.55),
+        0 12px 26px rgba(15, 23, 42, 0.9);
+      text-decoration: none;
+    }
+
+    .btn:hover {
+      filter: brightness(1.1);
+      text-decoration: none;
+    }
+
+    footer {
+      border-top: 1px solid rgba(148, 163, 184, 0.3);
+      padding: 1.4rem 1.5rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: space-between;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.2rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+    }
+
+    .accent-line {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--electric-blue), transparent);
+      border-radius: 999px;
+      margin-top: 0.15rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="site-title">ONEWHEEL TRICK LAB</div>
+        <div class="site-subtitle">Level up your Onewheel experience!</div>
+      </div>
+
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Ride Level: Beginner
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div class="intro-main">
+        <div class="intro-text">
+          <h2>Dial In Your Foundation</h2>
+          <p>
+            Before you unlock the flashier moves, this guide focuses on building
+            effortless control, smooth balance, and clean riding technique.
+            Master these fundamentals and every trick becomes easier.
+          </p>
+        </div>
+
+        <div class="intro-image-wrap">
+          <!-- Pint X image to the right of the paragraph -->
+          <img
+            src="https://www.focusmadison.com/cdn/shop/files/Pint-X.jpg?v=1684442690&width=1000"
+            alt="Onewheel Pint X with light-blue rail guards"
+          />
+        </div>
+      </div>
+
+      <div class="safety-callout">
+        <div class="safety-title">Safety Checklist</div>
+        <div class="accent-line"></div>
+        <ul class="safety-list">
+          <li>Always wear a helmet, wrist guards, and pads.</li>
+          <li>Practice on smooth, open pavement away from cars &amp; crowds.</li>
+          <li>Keep your speed low while learning — style comes before speed.</li>
+          <li>Stop if you feel fatigued; tired legs = sloppy balance.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="grid">
+      <!-- LEFT COLUMN – TRICKS -->
+      <div class="tricks">
+        <!-- Trick 1 -->
+        <article class="trick-card">
+          <div class="trick-card-inner">
+            <div class="trick-label">Trick 01</div>
+            <h3 class="trick-name">Confident Mount &amp; Dismount</h3>
+            <div class="difficulty"><span>Level 1</span> · Essential Control</div>
+            <p class="trick-description">
+              Before any flashy tricks, you need smooth, repeatable mounts and dismounts.
+              Think of this as your “clean start and stop” combo.
+            </p>
+
+            <div class="steps-title">Steps</div>
+            <ul class="steps">
+              <li>Place the board on flat ground with the nose pointing forward.</li>
+              <li>Stand beside the board, shoulders squared, knees slightly bent.</li>
+              <li>Place your front foot fully on the front pad, centered and level.</li>
+              <li>Slowly transfer weight onto the front foot as your back foot steps on.</li>
+              <li>Engage your core, look where you want to go, and gently lean forward.</li>
+              <li>To dismount, slow down, bring the board almost to a stop, then lift your front heel off the pad or use your board’s simple-stop mode.</li>
+              <li>Step off with your back foot first, then your front foot, staying low and balanced.</li>
+            </ul>
+
+            <p class="hint">
+              Repeat this 10–15 times on each side until mounting and dismounting feel boring.
+            </p>
+
+            <div class="links-row">
+              <a class="pill-link" href="https://www.youtube.com/watch?v=WYUbNtuGWMA" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: First Mount &amp; Ride</span>
+              </a>
+              <a class="pill-link" href="https://www.youtube.com/watch?v=7TrVVPYLTKw" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: How to Dismount</span>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Trick 2 -->
+        <article class="trick-card" style="margin-top: 1.5rem;">
+          <div class="trick-card-inner">
+            <div class="trick-label">Trick 02</div>
+            <h3 class="trick-name">Basic Carves &amp; S-Turns</h3>
+            <div class="difficulty"><span>Level 2</span> · Flow Builder</div>
+            <p class="trick-description">
+              Smooth carving is what makes Onewheel riding feel like snowboarding on pavement.
+              These S-turns also teach you fine control over your edges.
+            </p>
+
+            <div class="steps-title">Steps</div>
+            <ul class="steps">
+              <li>Start rolling at a slow, comfortable speed on a wide, empty stretch of pavement.</li>
+              <li>Keep your knees soft and your weight centered over the wheel.</li>
+              <li>To initiate a toe-side carve, gently lean your shins and knees toward your toes.</li>
+              <li>As the board turns, keep your chest facing forward and look through the turn.</li>
+              <li>To switch to heel-side, smoothly roll your weight back toward your heels.</li>
+              <li>Link turns together: toe → heel → toe, making long, lazy S-shapes down your practice area.</li>
+              <li>Focus on staying relaxed and quiet with your upper body — all the motion comes from your ankles and knees.</li>
+            </ul>
+
+            <p class="hint">
+              Aim for long, wide turns at first; as you gain control, you can make them tighter and more dynamic.
+            </p>
+
+            <div class="links-row">
+              <a class="pill-link" href="https://www.youtube.com/watch?v=jG7i8zzHrMQ" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: Turning &amp; Carving Tutorial</span>
+              </a>
+              <a class="pill-link" href="https://www.youtube.com/watch?v=mKYq4oeQXnw" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: 4 Tips for Beginners</span>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Trick 3 -->
+        <article class="trick-card" style="margin-top: 1.5rem;">
+          <div class="trick-card-inner">
+            <div class="trick-label">Trick 03</div>
+            <h3 class="trick-name">Ride Switch (Fakie)</h3>
+            <div class="difficulty"><span>Level 3</span> · Balance Upgrade</div>
+            <p class="trick-description">
+              Riding switch (your non-dominant stance forward) doubles your control and makes
+              every future trick easier. Go slow and stay patient.
+            </p>
+
+            <div class="steps-title">Steps</div>
+            <ul class="steps">
+              <li>From a normal stance, slow down until you’re barely rolling.</li>
+              <li>Step off, rotate the board 180°, and remount with your opposite foot forward.</li>
+              <li>Start with tiny, straight-line rolls in switch — 10–15 feet is enough.</li>
+              <li>Keep your shoulders relaxed and your gaze fixed far ahead, not at your feet.</li>
+              <li>Use micro-adjustments in your ankles to keep the board centered under you.</li>
+              <li>As you gain control, add very gentle toe/heel leans to introduce small carves.</li>
+              <li>Practice alternating sets: one run regular, one run switch, back and forth.</li>
+            </ul>
+
+            <p class="hint">
+              Add switch practice to every session. Even 5 minutes per ride will make a huge difference over time.
+            </p>
+
+            <div class="links-row">
+              <a class="pill-link" href="https://www.youtube.com/watch?v=XWpPwXqVdd0" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: How to Ride Switch</span>
+              </a>
+              <a class="pill-link" href="https://www.youtube.com/watch?v=0O6-hD16U3k" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: 5 Easy Tricks for Beginners</span>
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Trick 4 -->
+        <article class="trick-card" style="margin-top: 1.5rem;">
+          <div class="trick-card-inner">
+            <div class="trick-label">Trick 04</div>
+            <h3 class="trick-name">Small Curb Drops</h3>
+            <div class="difficulty"><span>Level 4</span> · Street Skill</div>
+            <p class="trick-description">
+              Learning controlled drops opens up city riding and basic urban lines. Start tiny,
+              nail the technique, then slowly work bigger.
+            </p>
+
+            <div class="steps-title">Steps</div>
+            <ul class="steps">
+              <li>Find a very small drop first (like a driveway lip or 1–2&quot; curb).</li>
+              <li>Approach straight on at walking speed, knees bent and eyes forward.</li>
+              <li>Right before the edge, shift your hips slightly back to keep the nose from diving.</li>
+              <li>Stay loose in your knees and ankles to absorb the landing.</li>
+              <li>Let the wheel roll out after the drop; don’t slam your weight forward.</li>
+              <li>Repeat on the tiny drop until it feels smooth, then step up to a normal curb.</li>
+              <li>Only increase speed once you can land consistently without nose-dive or wobble.</li>
+            </ul>
+
+            <p class="hint">
+              If you’re nervous, practice off a painted line or crack first, pretending it’s a drop
+              to get the timing and weight shift dialed.
+            </p>
+
+            <div class="links-row">
+              <a class="pill-link" href="https://www.youtube.com/watch?v=49HFtkoDhpE" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: Curb Drop Progression</span>
+              </a>
+              <a class="pill-link" href="https://www.youtube.com/watch?v=RxQZptt4Xa4" target="_blank" rel="noopener noreferrer">
+                <span class="icon">▶</span><span>Video: How to Drop (Pint &amp; XR)</span>
+              </a>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- RIGHT COLUMN – RESOURCES -->
+      <aside class="sidebar">
+        <div class="module">
+          <div class="module-title">Official Onewheel Hub</div>
+          <p>
+            Get board specs, firmware updates, and official tutorials straight from the source.
+          </p>
+          <a class="btn" href="https://onewheel.com" target="_blank" rel="noopener noreferrer">
+            <span>Visit Onewheel.com</span>
+          </a>
+        </div>
+
+        <div class="module">
+          <div class="module-title">More Video Playlists</div>
+          <p>
+            When you’ve mastered the tricks on this page, dive deeper into community-made tutorials:
+          </p>
+          <ul>
+            <li>
+              <a href="https://www.youtube.com/playlist?list=PLwHhGWG1Ijyu0UTlLWWFZEXSDewgtu6n3" target="_blank" rel="noopener noreferrer">
+                The Basics: Onewheel Tutorials (Playlist)
+              </a>
+            </li>
+            <li>
+              <a href="https://www.youtube.com/watch?v=dPnaAdmMI3o" target="_blank" rel="noopener noreferrer">
+                7 Onewheel Tricks Every Rider Should Know
+              </a>
+            </li>
+            <li>
+              <a href="https://www.youtube.com/watch?v=0O6-hD16U3k" target="_blank" rel="noopener noreferrer">
+                5 Easiest Onewheel Tricks for Beginners
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div class="module">
+          <div class="module-title">Session Checklist</div>
+          <ul>
+            <li>Helmet, wrist guards, knee &amp; elbow pads.</li>
+            <li>Battery charged &amp; board inspected.</li>
+            <li>Low-traffic practice zone picked out.</li>
+            <li>10–20 minutes of warm-up carving.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <footer>
+    <div>Built for beginners chasing clean lines &amp; smooth flow.</div>
+    <div class="footer-links">
+      <span>Ride smart.</span>
+      <span>Progress slowly.</span>
+      <span>Have fun.</span>
+    </div>
+  </footer>
+</body>
+</html>

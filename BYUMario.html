@@ -1,0 +1,2002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cosmo's Cougar Run</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #001a4d;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding-top: 20px;
+    }
+    h1 {
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-size: 1.6rem;
+    }
+    #subtitle {
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+      opacity: 0.85;
+      text-align: center;
+    }
+    #hud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      justify-content: center;
+    }
+    #hud span {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 4px 10px;
+    }
+    #instructions {
+      font-size: 0.8rem;
+      margin-bottom: 10px;
+      text-align: center;
+      opacity: 0.9;
+    }
+    canvas {
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      background: #0b1024;
+      max-width: 100%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>COSMO'S COUGAR RUN</h1>
+  <div id="subtitle">BYU vs Utah: Help Cosmo clear all 5 levels!</div>
+
+  <div id="hud">
+    <span id="score">CougarTails: 0</span>
+    <span id="lives">Lives: 3</span>
+    <span id="power">Power: Normal</span>
+    <span id="status">Title Screen</span>
+  </div>
+
+  <div id="instructions">
+    In levels: Move with <strong>← →</strong> or <strong>A / D</strong>. Jump with <strong>↑</strong>, <strong>W</strong>, or
+    <strong>Space</strong>.<br />
+    When BIG you can <strong>double jump</strong>. Press <strong>F</strong> to shoot fire when you have fire power.<br />
+    Map: Click unlocked levels to enter. Title: Click <strong>Start</strong> or press <strong>Enter</strong>.
+  </div>
+
+  <canvas id="gameCanvas" width="900" height="500"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const scoreEl = document.getElementById("score");
+    const livesEl = document.getElementById("lives");
+    const powerEl = document.getElementById("power");
+    const statusEl = document.getElementById("status");
+
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+    const WORLD_WIDTH = 3200;
+
+    // Level themes: 0..4
+    const levelThemes = ["byu-day", "snow", "desert", "night", "utah"];
+    function getCurrentTheme() {
+      return levelThemes[currentLevel] || "byu-day";
+    }
+
+    // GAME STATES: "title" | "map" | "level" | "victory"
+    let gameState = "title";
+    let titleTime = 0;
+
+    const MAX_LEVELS = 5;
+    let currentLevel = 0;
+    let unlockedLevels = [true, false, false, false, false];
+    let completedLevels = [false, false, false, false, false];
+
+    // Map nodes
+    const houseNode = { x: 110, y: 360, r: 26 };
+    const mapLevelNodes = [
+      { x: 260, y: 320, r: 26 },
+      { x: 400, y: 250, r: 26 },
+      { x: 540, y: 290, r: 26 },
+      { x: 680, y: 230, r: 26 },
+      { x: 820, y: 280, r: 26 },
+    ];
+    let mapCosmo = { x: houseNode.x, y: houseNode.y };
+    let mapTarget = null;           // {x,y,levelIndex}
+    let pendingAutoEnterLevel = null;
+
+    // Level / player physics
+    const gravity = 0.7;
+    const friction = 0.8;
+    const playerSpeed = 4;
+    const jumpStrength = 14;
+
+    const keys = { left: false, right: false, up: false, fire: false };
+
+    const playerStart = { x: 80, y: HEIGHT - 180 };
+    const player = {
+      x: playerStart.x,
+      y: playerStart.y,
+      width: 34,
+      height: 52,
+      vx: 0,
+      vy: 0,
+      onGround: false,
+      big: false,
+      hasFire: false,
+      facing: "right",
+      doubleJumpAvailable: false,
+      animWalk: 0,
+      invincibleUntil: 0,
+    };
+
+    let lastPlayerY = player.y;
+    let lastPlayerBottom = player.y + player.height;
+
+    let platforms = [];
+    let cougarTails = [];
+    let enemies = [];
+    let boxes = [];
+    let powerups = [];
+    let fireballs = [];
+
+    let score = 0;
+    let lives = 3;
+    let gameOver = false;
+    let levelComplete = false;
+    let levelCompletionHandled = false;
+
+    let cameraX = 0;
+
+    const flagpole = {
+      x: WORLD_WIDTH - 120,
+      baseY: HEIGHT - 40,
+      height: 220,
+      captured: false,
+    };
+
+    let slideProgress = 0;
+    let slideStartY = 0;
+    let slideEndY = 0;
+
+    function updateHud() {
+      scoreEl.textContent = "CougarTails: " + score;
+      livesEl.textContent = "Lives: " + lives;
+      let powerText = "Normal";
+      if (player.big && !player.hasFire) powerText = "Big Cosmo (Double Jump)";
+      if (player.hasFire) powerText = player.big ? "Big Fire Cosmo" : "Fire Cosmo";
+      powerEl.textContent = "Power: " + powerText;
+    }
+
+    // ===== LEVEL BUILDING =====
+    function buildLevel(levelIndex) {
+      const offset = levelIndex * 80;
+
+      platforms = [
+        { x: 0, y: HEIGHT - 40, width: WORLD_WIDTH, height: 40 },
+        { x: 200 + offset * 0.3, y: HEIGHT - 140, width: 140, height: 20 },
+        { x: 450 + offset * 0.2, y: HEIGHT - 210, width: 160, height: 20 },
+        { x: 750 + offset * 0.4, y: HEIGHT - 160, width: 120, height: 20 },
+        { x: 1100 + offset * 0.2, y: HEIGHT - 190, width: 150, height: 20 },
+        { x: 1450 + offset * 0.5, y: HEIGHT - 230, width: 150, height: 20 },
+        { x: 1780 + offset * 0.2, y: HEIGHT - 160, width: 130, height: 20 },
+        { x: 2050 + offset * 0.3, y: HEIGHT - 200, width: 150, height: 20 },
+        { x: 2400 + offset * 0.2, y: HEIGHT - 150, width: 160, height: 20 },
+        { x: 2700 + offset * 0.4, y: HEIGHT - 190, width: 140, height: 20 },
+      ];
+
+      cougarTails = [
+        { x: 230 + offset * 0.3, y: HEIGHT - 180, width: 40, height: 14, collected: false },
+        { x: 500 + offset * 0.1, y: HEIGHT - 250, width: 40, height: 14, collected: false },
+        { x: 780 + offset * 0.2, y: HEIGHT - 200, width: 40, height: 14, collected: false },
+        { x: 1150 + offset * 0.1, y: HEIGHT - 230, width: 40, height: 14, collected: false },
+        { x: 1480 + offset * 0.3, y: HEIGHT - 270, width: 40, height: 14, collected: false },
+        { x: 2100 + offset * 0.4, y: HEIGHT - 240, width: 40, height: 14, collected: false },
+        { x: 2440 + offset * 0.1, y: HEIGHT - 190, width: 40, height: 14, collected: false },
+        { x: 2740 + offset * 0.5, y: HEIGHT - 230, width: 40, height: 14, collected: false },
+      ];
+
+      enemies = [
+        {
+          type: "uofu",
+          x: 380 + offset * 0.2,
+          y: HEIGHT - 72,
+          width: 38,
+          height: 30,
+          vx: 1.3,
+          patrolMin: 360 + offset * 0.2,
+          patrolMax: 520 + offset * 0.2,
+          active: true,
+        },
+        {
+          type: "uofu",
+          x: 900 + offset * 0.3,
+          y: HEIGHT - 72,
+          width: 38,
+          height: 30,
+          vx: -1.5,
+          patrolMin: 840 + offset * 0.3,
+          patrolMax: 1040 + offset * 0.3,
+          active: true,
+        },
+        {
+          type: "uofu",
+          x: 1700 + offset * 0.4,
+          y: HEIGHT - 72,
+          width: 38,
+          height: 30,
+          vx: 1.6,
+          patrolMin: 1640 + offset * 0.4,
+          patrolMax: 1820 + offset * 0.4,
+          active: true,
+        },
+        {
+          type: "flame",
+          x: 620 + offset * 0.2,
+          y: HEIGHT - 60,
+          width: 46,
+          height: 18,
+          vx: 0,
+          patrolMin: 620 + offset * 0.2,
+          patrolMax: 620 + offset * 0.2,
+          active: true,
+        },
+        {
+          type: "flame",
+          x: 2000 + offset * 0.3,
+          y: HEIGHT - 60,
+          width: 46,
+          height: 18,
+          vx: 0,
+          patrolMin: 2000 + offset * 0.3,
+          patrolMax: 2000 + offset * 0.3,
+          active: true,
+        },
+        // Swoop (humanoid Superman-style)
+        {
+          type: "hawk",
+          x: 600 + offset * 0.2,
+          y: 180,
+          baseY: 180,
+          width: 60,
+          height: 30,
+          vx: 2,
+          patrolMin: 550 + offset * 0.2,
+          patrolMax: 900 + offset * 0.2,
+          phase: 0,
+          active: true,
+        },
+        {
+          type: "hawk",
+          x: 1500 + offset * 0.3,
+          y: 160,
+          baseY: 160,
+          width: 60,
+          height: 30,
+          vx: -2,
+          patrolMin: 1400 + offset * 0.3,
+          patrolMax: 1750 + offset * 0.3,
+          phase: 1.3,
+          active: true,
+        },
+        {
+          type: "hawk",
+          x: 2500 + offset * 0.4,
+          y: 150,
+          baseY: 150,
+          width: 60,
+          height: 30,
+          vx: 1.8,
+          patrolMin: 2450 + offset * 0.4,
+          patrolMax: 2800 + offset * 0.4,
+          phase: 2.7,
+          active: true,
+        },
+      ];
+
+      boxes = [
+        { x: 320 + offset * 0.2, y: HEIGHT - 210, width: 30, height: 30, used: false, contains: "tail" },
+        { x: 700 + offset * 0.2, y: HEIGHT - 230, width: 30, height: 30, used: false, contains: "big" },
+        { x: 1300 + offset * 0.3, y: HEIGHT - 240, width: 30, height: 30, used: false, contains: "life" },
+        { x: 1900 + offset * 0.4, y: HEIGHT - 260, width: 30, height: 30, used: false, contains: "fire" },
+        { x: 2300 + offset * 0.2, y: HEIGHT - 210, width: 30, height: 30, used: false, contains: "tail" },
+      ];
+
+      powerups = [];
+      fireballs = [];
+
+      flagpole.x = WORLD_WIDTH - 120 - offset * 0.25;
+      flagpole.captured = false;
+
+      levelComplete = false;
+      levelCompletionHandled = false;
+      gameOver = false;
+      slideProgress = 0;
+    }
+
+    function resetPlayerOnly() {
+      player.x = playerStart.x;
+      player.y = playerStart.y;
+      player.vx = 0;
+      player.vy = 0;
+      player.onGround = false;
+      player.doubleJumpAvailable = false;
+      player.invincibleUntil = 0;
+      player.animWalk = 0;
+      player.facing = "right";
+    }
+
+    function startLevel(levelIndex) {
+      currentLevel = levelIndex;
+      buildLevel(levelIndex);
+      resetPlayerOnly();
+      player.big = false;
+      player.hasFire = false;
+      player.height = 52;
+      statusEl.textContent = "Level " + (levelIndex + 1) + " - Go Cosmo!";
+      gameState = "level";
+      updateHud();
+    }
+
+    function resetFullGameState() {
+      score = 0;
+      lives = 3;
+      unlockedLevels = [true, false, false, false, false];
+      completedLevels = [false, false, false, false, false];
+      currentLevel = 0;
+      buildLevel(0);
+      resetPlayerOnly();
+      statusEl.textContent = "Title Screen";
+      updateHud();
+      mapCosmo.x = houseNode.x;
+      mapCosmo.y = houseNode.y;
+      mapTarget = null;
+      pendingAutoEnterLevel = null;
+      gameOver = false;
+      levelComplete = false;
+      levelCompletionHandled = false;
+    }
+
+    function goToTitle() {
+      gameState = "title";
+      statusEl.textContent = "Title Screen";
+    }
+
+    function startFromTitle() {
+      resetFullGameState();
+      gameState = "map";
+      statusEl.textContent = "Cosmo leaves home!";
+      mapCosmo.x = houseNode.x;
+      mapCosmo.y = houseNode.y;
+      mapTarget = {
+        x: mapLevelNodes[0].x,
+        y: mapLevelNodes[0].y,
+        levelIndex: 0,
+      };
+      pendingAutoEnterLevel = 0;
+    }
+
+    function goToMapAfterLevel() {
+      gameState = "map";
+      const node = mapLevelNodes[currentLevel];
+      mapCosmo.x = node.x;
+      mapCosmo.y = node.y;
+      mapTarget = null;
+      pendingAutoEnterLevel = null;
+      statusEl.textContent = "Choose your next level.";
+    }
+
+    function goToVictoryScreen() {
+      gameState = "victory";
+      statusEl.textContent = "All 5 levels cleared!";
+    }
+
+    // ===== INPUT =====
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = true;
+      if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = true;
+
+      if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Space") {
+        keys.up = true;
+        if (gameState === "level" && !gameOver && !levelComplete) {
+          if (player.onGround) {
+            player.vy = -jumpStrength;
+            player.onGround = false;
+            if (player.big) player.doubleJumpAvailable = true;
+          } else if (player.big && player.doubleJumpAvailable) {
+            player.vy = -jumpStrength * 0.85;
+            player.doubleJumpAvailable = false;
+          }
+        }
+        e.preventDefault();
+      }
+
+      if (e.code === "KeyF") {
+        keys.fire = true;
+        if (gameState === "level" && player.hasFire && !gameOver && !levelComplete) {
+          shootFireball();
+        }
+      }
+
+      if (e.code === "Enter") {
+        if (gameState === "title") {
+          startFromTitle();
+        } else if (gameState === "level" && gameOver) {
+          resetFullGameState();
+          goToTitle();
+        } else if (gameState === "victory") {
+          resetFullGameState();
+          goToTitle();
+        }
+      }
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+      if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+      if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "Space") keys.up = false;
+      if (e.code === "KeyF") keys.fire = false;
+    });
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      if (gameState === "title") {
+        const btn = getTitleStartButtonRect();
+        if (mx >= btn.x && mx <= btn.x + btn.w && my >= btn.y && my <= btn.y + btn.h) {
+          startFromTitle();
+        }
+      } else if (gameState === "map") {
+        if (mapTarget) return;
+        for (let i = 0; i < MAX_LEVELS; i++) {
+          const node = mapLevelNodes[i];
+          const dx = mx - node.x;
+          const dy = my - node.y;
+          if (dx * dx + dy * dy <= node.r * node.r) {
+            if (unlockedLevels[i]) {
+              mapTarget = { x: node.x, y: node.y, levelIndex: i };
+              pendingAutoEnterLevel = i;
+              statusEl.textContent = "Heading to Level " + (i + 1);
+              break;
+            }
+          }
+        }
+      }
+    });
+
+    // ===== PHYSICS & COLLISIONS =====
+    function aabbCollide(a, b) {
+      return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+      );
+    }
+
+    function handlePlayerMovement() {
+      if (gameState !== "level" || gameOver || levelComplete) return;
+
+      lastPlayerY = player.y;
+      lastPlayerBottom = player.y + player.height;
+
+      if (keys.left) {
+        player.vx = -playerSpeed;
+        player.facing = "left";
+      } else if (keys.right) {
+        player.vx = playerSpeed;
+        player.facing = "right";
+      } else {
+        player.vx *= friction;
+        if (Math.abs(player.vx) < 0.1) player.vx = 0;
+      }
+
+      player.vy += gravity;
+
+      player.x += player.vx;
+      if (player.x < 0) player.x = 0;
+      if (player.x + player.width > WORLD_WIDTH) player.x = WORLD_WIDTH - player.width;
+
+      const prevY = lastPlayerY;
+      player.y += player.vy;
+      player.onGround = false;
+
+      // Platforms
+      for (const p of platforms) {
+        if (!aabbCollide(player, p)) continue;
+        if (player.vy > 0 && prevY + player.height <= p.y) {
+          player.y = p.y - player.height;
+          player.vy = 0;
+          player.onGround = true;
+          if (player.big) player.doubleJumpAvailable = true;
+        } else if (player.vy < 0 && prevY >= p.y + p.height) {
+          player.y = p.y + p.height;
+          player.vy = 0;
+        }
+      }
+
+      // Boxes (platform + power-up)
+      for (const b of boxes) {
+        if (!aabbCollide(player, b)) continue;
+
+        if (player.vy > 0 && prevY + player.height <= b.y) {
+          player.y = b.y - player.height;
+          player.vy = 0;
+          player.onGround = true;
+          if (player.big) player.doubleJumpAvailable = true;
+          hitBoxFromTop(b);
+        } else if (player.vy < 0 && prevY >= b.y + b.height) {
+          player.y = b.y + b.height;
+          player.vy = 0;
+          hitBoxFromBottom(b);
+        }
+      }
+
+      if (player.y > HEIGHT + 150) {
+        lives--;
+        if (lives <= 0) {
+          gameOver = true;
+          statusEl.textContent = "Out of lives! Press ENTER to restart run.";
+          updateHud();
+        } else {
+          softRestartLevelAfterDeath("Cosmo fell off the field!");
+        }
+      }
+    }
+
+    function spawnPowerup(box, direction) {
+      if (box.used || !box.contains) return;
+      box.used = true;
+      const p = {
+        type: box.contains,
+        x: box.x + box.width / 2 - 14,
+        y: direction === "up" ? box.y - 20 : box.y + box.height - 8,
+        width: 28,
+        height: 28,
+        vy: direction === "up" ? -3 : 3,
+        active: true,
+      };
+      powerups.push(p);
+      statusEl.textContent = "Power-up!";
+    }
+
+    function hitBoxFromBottom(box) {
+      spawnPowerup(box, "up");
+    }
+
+    function hitBoxFromTop(box) {
+      spawnPowerup(box, "down");
+    }
+
+    function softRestartLevelAfterDeath(msg) {
+      statusEl.textContent = msg + " (Lives left: " + lives + ")";
+      buildLevel(currentLevel);
+      resetPlayerOnly();
+      player.big = false;
+      player.hasFire = false;
+      player.height = 52;
+      updateHud();
+    }
+
+    function loseLifeCompletely(message) {
+      if (gameOver) return;
+      lives--;
+      if (lives <= 0) {
+        gameOver = true;
+        statusEl.textContent = "Out of lives! Press ENTER to restart run.";
+        updateHud();
+      } else {
+        softRestartLevelAfterDeath(message);
+      }
+    }
+
+    function takeHit(messageWhenNoPower) {
+      const now = performance.now();
+      if (now < player.invincibleUntil || gameOver || levelComplete) return;
+
+      if (player.hasFire) {
+        player.hasFire = false;
+        player.invincibleUntil = now + 1300;
+        statusEl.textContent = "Fire power lost!";
+      } else if (player.big) {
+        const oldHeight = player.height;
+        player.big = false;
+        player.height = 52;
+        player.y += oldHeight - player.height;
+        player.doubleJumpAvailable = false;
+        player.invincibleUntil = now + 1300;
+        statusEl.textContent = "Big Cosmo shrinks!";
+      } else {
+        loseLifeCompletely(messageWhenNoPower);
+      }
+      updateHud();
+    }
+
+    function updateEnemies() {
+      if (gameState !== "level") return;
+      const t = performance.now();
+      for (const e of enemies) {
+        if (!e.active) continue;
+        if (e.type === "uofu") {
+          e.x += e.vx;
+          if (e.x < e.patrolMin || e.x + e.width > e.patrolMax) e.vx *= -1;
+        } else if (e.type === "hawk") {
+          e.x += e.vx;
+          if (e.x < e.patrolMin || e.x + e.width > e.patrolMax) e.vx *= -1;
+          e.y = e.baseY + Math.sin(t / 400 + e.phase) * 10;
+        }
+      }
+    }
+
+    function updatePowerups() {
+      if (gameState !== "level") return;
+      for (const p of powerups) {
+        if (!p.active) continue;
+        p.y += p.vy;
+        p.vy *= 0.9;
+        if (aabbCollide(player, p)) {
+          applyPowerup(p.type);
+          p.active = false;
+        }
+      }
+    }
+
+    function applyPowerup(type) {
+      if (type === "tail") {
+        score++;
+        statusEl.textContent = "CougarTail bonus!";
+      } else if (type === "big") {
+        if (!player.big) {
+          const oldHeight = player.height;
+          player.big = true;
+          player.height = 70;
+          player.y -= player.height - oldHeight;
+        }
+        if (player.onGround) player.doubleJumpAvailable = true;
+        statusEl.textContent = "Big Cosmo! Double jump unlocked.";
+      } else if (type === "life") {
+        lives++;
+        statusEl.textContent = "Extra life!";
+      } else if (type === "fire") {
+        if (!player.big) {
+          const oldHeight = player.height;
+          player.big = true;
+          player.height = 70;
+          player.y -= player.height - oldHeight;
+        }
+        player.hasFire = true;
+        if (player.onGround) player.doubleJumpAvailable = true;
+        statusEl.textContent = "Fire Cosmo activated! Press F to shoot.";
+      }
+      updateHud();
+    }
+
+    function shootFireball() {
+      const fb = {
+        x: player.facing === "right" ? player.x + player.width : player.x - 10,
+        y: player.y + player.height / 2,
+        width: 10,
+        height: 10,
+        vx: player.facing === "right" ? 8 : -8,
+        active: true,
+      };
+      fireballs.push(fb);
+    }
+
+    function updateFireballs() {
+      if (gameState !== "level") return;
+      for (const fb of fireballs) {
+        if (!fb.active) continue;
+        fb.x += fb.vx;
+        if (fb.x < 0 || fb.x > WORLD_WIDTH) {
+          fb.active = false;
+          continue;
+        }
+        for (const e of enemies) {
+          if (!e.active) continue;
+          if (aabbCollide(fb, e)) {
+            e.active = false;
+            fb.active = false;
+            statusEl.textContent = "Rival eliminated!";
+            break;
+          }
+        }
+      }
+    }
+
+    function checkCollisions() {
+      if (gameState !== "level" || gameOver || levelComplete) return;
+
+      const now = performance.now();
+
+      // Cougar tails
+      for (const tail of cougarTails) {
+        if (!tail.collected && aabbCollide(player, tail)) {
+          tail.collected = true;
+          score++;
+          statusEl.textContent = "CougarTail collected!";
+          updateHud();
+        }
+      }
+
+      // Enemies
+      for (const e of enemies) {
+        if (!e.active) continue;
+        if (now < player.invincibleUntil) continue;
+        if (!aabbCollide(player, e)) continue;
+
+        if (e.type === "uofu") {
+          const comingFromAbove = player.vy > 0 && lastPlayerBottom <= e.y;
+          if (comingFromAbove) {
+            e.active = false;
+            player.vy = -jumpStrength * 0.6;
+            player.onGround = false;
+            statusEl.textContent = "Stomped a U-monster!";
+            score++;
+            updateHud();
+          } else {
+            takeHit("Cosmo got hit by a U-monster!");
+          }
+        } else if (e.type === "hawk") {
+          takeHit("Cosmo got clipped by Swoop!");
+        } else if (e.type === "flame") {
+          takeHit("Cosmo hit a flaming bar!");
+        }
+      }
+
+      // Flagpole
+      const poleRect = {
+        x: flagpole.x - 4,
+        y: flagpole.baseY - flagpole.height,
+        width: 8,
+        height: flagpole.height,
+      };
+      if (!levelComplete && aabbCollide(player, poleRect)) {
+        startFlagSlide();
+      }
+    }
+
+    function startFlagSlide() {
+      levelComplete = true;
+      flagpole.captured = true;
+      slideProgress = 0;
+      slideStartY = player.y;
+      slideEndY = flagpole.baseY - player.height;
+      statusEl.textContent = "Flag captured!";
+    }
+
+    function handleLevelCompletedOnce() {
+      if (levelCompletionHandled) return;
+      levelCompletionHandled = true;
+
+      completedLevels[currentLevel] = true;
+      if (currentLevel < MAX_LEVELS - 1) {
+        unlockedLevels[currentLevel + 1] = true;
+        goToMapAfterLevel();
+      } else {
+        goToVictoryScreen();
+      }
+    }
+
+    function animateSlide() {
+      if (gameState !== "level" || !levelComplete) return;
+      player.x = flagpole.x - player.width / 2;
+      if (slideProgress < 1) {
+        slideProgress += 0.02;
+        player.y = slideStartY + (slideEndY - slideStartY) * slideProgress;
+      } else {
+        handleLevelCompletedOnce();
+      }
+    }
+
+    // ===== DRAWING: WORLD (per theme) =====
+    function drawBackgroundWorld(theme) {
+      if (theme === "snow") {
+        // Cold blue sky
+        const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        grad.addColorStop(0, "#cce7ff");
+        grad.addColorStop(1, "#4b7ccc");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, WORLD_WIDTH, HEIGHT);
+
+        // Light mountains
+        ctx.fillStyle = "#e5edf7";
+        ctx.beginPath();
+        ctx.moveTo(200, 230);
+        ctx.lineTo(520, 120);
+        ctx.lineTo(840, 230);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#d3e0f5";
+        ctx.beginPath();
+        ctx.moveTo(1500, 230);
+        ctx.lineTo(1850, 140);
+        ctx.lineTo(2200, 230);
+        ctx.closePath();
+        ctx.fill();
+
+        // Snow field
+        ctx.fillStyle = "#f7fbff";
+        ctx.fillRect(0, HEIGHT - 100, WORLD_WIDTH, 60);
+
+        // Yard lines faint
+        ctx.strokeStyle = "rgba(180,200,220,0.6)";
+        for (let x = 0; x <= WORLD_WIDTH; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x, HEIGHT - 100);
+          ctx.lineTo(x, HEIGHT - 40);
+          ctx.stroke();
+        }
+
+        // Little snow piles
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 40; i++) {
+          const sx = i * 80 + 20;
+          const sy = HEIGHT - 45 - (i % 3) * 4;
+          ctx.beginPath();
+          ctx.ellipse(sx, sy, 18, 6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Snow "flakes" pattern
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        for (let x = 0; x < WORLD_WIDTH; x += 120) {
+          for (let y = 40; y < HEIGHT - 120; y += 60) {
+            ctx.fillRect(x + ((x + y) % 40), y, 2, 2);
+          }
+        }
+
+        // Simple scoreboard
+        ctx.fillStyle = "#0f172a";
+        ctx.fillRect(WORLD_WIDTH - 420, 80, 260, 90);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("SNOW BOWL", WORLD_WIDTH - 290, 105);
+        ctx.font = "14px system-ui";
+        ctx.fillText("BYU: " + score, WORLD_WIDTH - 330, 135);
+        ctx.fillText("UTES: " + Math.max(0, 5 - lives), WORLD_WIDTH - 250, 135);
+        ctx.textAlign = "left";
+      } else if (theme === "desert") {
+        // Warm desert sky
+        const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        grad.addColorStop(0, "#ffcf73");
+        grad.addColorStop(1, "#d97738");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, WORLD_WIDTH, HEIGHT);
+
+        // Canyon walls
+        ctx.fillStyle = "#c5683a";
+        ctx.beginPath();
+        ctx.moveTo(0, 260);
+        ctx.lineTo(300, 140);
+        ctx.lineTo(600, 260);
+        ctx.lineTo(900, 150);
+        ctx.lineTo(1200, 260);
+        ctx.lineTo(1500, 150);
+        ctx.lineTo(1800, 260);
+        ctx.lineTo(WORLD_WIDTH, 160);
+        ctx.lineTo(WORLD_WIDTH, HEIGHT);
+        ctx.lineTo(0, HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+
+        // Sand
+        ctx.fillStyle = "#d9b26a";
+        ctx.fillRect(0, HEIGHT - 100, WORLD_WIDTH, 60);
+        ctx.fillStyle = "#e6c37f";
+        for (let x = 0; x < WORLD_WIDTH; x += 90) {
+          ctx.beginPath();
+          ctx.ellipse(x + 45, HEIGHT - 50, 40, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        for (let x = 0; x <= WORLD_WIDTH; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x, HEIGHT - 100);
+          ctx.lineTo(x, HEIGHT - 40);
+          ctx.stroke();
+        }
+
+        // Sun
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.beginPath();
+        ctx.arc(260, 90, 40, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Scoreboard
+        ctx.fillStyle = "#7c2d12";
+        ctx.fillRect(WORLD_WIDTH - 440, 80, 260, 90);
+        ctx.fillStyle = "#ffedd5";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("DESERT CLASSIC", WORLD_WIDTH - 310, 105);
+        ctx.font = "14px system-ui";
+        ctx.fillText("BYU: " + score, WORLD_WIDTH - 350, 135);
+        ctx.fillText("UTES: " + Math.max(0, 5 - lives), WORLD_WIDTH - 270, 135);
+        ctx.textAlign = "left";
+      } else if (theme === "night") {
+        // Deep night sky
+        const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        grad.addColorStop(0, "#020617");
+        grad.addColorStop(1, "#111827");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, WORLD_WIDTH, HEIGHT);
+
+        // Stars
+        ctx.fillStyle = "#e5e7eb";
+        for (let x = 0; x < WORLD_WIDTH; x += 120) {
+          for (let y = 20; y < 180; y += 40) {
+            if (((x + y) / 20) % 3 === 0) {
+              ctx.fillRect(x + 10, y, 2, 2);
+              ctx.fillRect(x + 24, y + 8, 2, 2);
+            }
+          }
+        }
+
+        // Stands
+        ctx.fillStyle = "#020617";
+        ctx.fillRect(80, 80, WORLD_WIDTH - 160, 140);
+
+        // Stadium lights
+        ctx.fillStyle = "#f9fafb";
+        const lightY = 70;
+        for (let x = 150; x < WORLD_WIDTH; x += 350) {
+          ctx.fillRect(x, lightY, 60, 10);
+          ctx.fillRect(x + 20, lightY + 10, 20, 40);
+        }
+
+        // Field
+        ctx.fillStyle = "#064e3b";
+        ctx.fillRect(0, HEIGHT - 100, WORLD_WIDTH, 60);
+        ctx.strokeStyle = "rgba(209,250,229,0.6)";
+        for (let x = 0; x <= WORLD_WIDTH; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x, HEIGHT - 100);
+          ctx.lineTo(x, HEIGHT - 40);
+          ctx.stroke();
+        }
+
+        // Center logo
+        ctx.fillStyle = "#ecfeff";
+        ctx.font = "bold 32px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("BYU", WORLD_WIDTH / 2, HEIGHT - 55);
+        ctx.textAlign = "left";
+
+        // Glowy scoreboard
+        ctx.fillStyle = "#1f2937";
+        ctx.fillRect(WORLD_WIDTH - 420, 80, 260, 90);
+        ctx.fillStyle = "#a5b4fc";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("BYU NIGHT GAME", WORLD_WIDTH - 290, 105);
+        ctx.font = "14px system-ui";
+        ctx.fillText("BYU: " + score, WORLD_WIDTH - 330, 135);
+        ctx.fillText("UTES: " + Math.max(0, 5 - lives), WORLD_WIDTH - 250, 135);
+        ctx.textAlign = "left";
+      } else if (theme === "utah") {
+        // Utah home field theme
+        const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        grad.addColorStop(0, "#3b0b0b");
+        grad.addColorStop(1, "#7f1d1d");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, WORLD_WIDTH, HEIGHT);
+
+        // Red stands
+        ctx.fillStyle = "#7f1d1d";
+        ctx.fillRect(80, 80, WORLD_WIDTH - 160, 140);
+        ctx.strokeStyle = "rgba(248,250,252,0.06)";
+        for (let i = 0; i < 5; i++) {
+          const y = 100 + i * 22;
+          ctx.beginPath();
+          ctx.moveTo(90, y);
+          ctx.lineTo(WORLD_WIDTH - 90, y);
+          ctx.stroke();
+        }
+
+        // Field
+        ctx.fillStyle = "#14532d";
+        ctx.fillRect(0, HEIGHT - 100, WORLD_WIDTH, 60);
+        ctx.strokeStyle = "rgba(248,250,252,0.5)";
+        for (let x = 0; x <= WORLD_WIDTH; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x, HEIGHT - 100);
+          ctx.lineTo(x, HEIGHT - 40);
+          ctx.stroke();
+        }
+
+        // Big U logo at center
+        ctx.fillStyle = "#b91c1c";
+        ctx.beginPath();
+        ctx.arc(WORLD_WIDTH / 2, HEIGHT - 60, 40, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(WORLD_WIDTH / 2, HEIGHT - 60, 28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#b91c1c";
+        ctx.font = "bold 30px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("U", WORLD_WIDTH / 2, HEIGHT - 50);
+        ctx.textAlign = "left";
+
+        // Scoreboard
+        const boardX = WORLD_WIDTH - 480;
+        const boardY = 80;
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(boardX, boardY, 280, 90);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("RICE-ECCLES STADIUM", boardX + 140, boardY + 24);
+        ctx.font = "14px system-ui";
+        ctx.fillText("UTES (home): " + Math.max(0, 5 - lives), boardX + 90, boardY + 54);
+        ctx.fillText("BYU (you): " + score, boardX + 210, boardY + 54);
+        ctx.textAlign = "left";
+      } else {
+        // Default BYU day theme
+        const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+        grad.addColorStop(0, "#001a4d");
+        grad.addColorStop(1, "#002b80");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, WORLD_WIDTH, HEIGHT);
+
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        for (let i = 0; i < 10; i++) {
+          const cx = i * 320 + 80;
+          const cy = 60 + (i % 3) * 20;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, 40, 18, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx + 24, cy + 4, 30, 14, 0, 0, Math.PI * 2);
+          ctx.ellipse(cx - 24, cy + 4, 30, 14, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.fillStyle = "#0a1030";
+        ctx.fillRect(80, 80, WORLD_WIDTH - 160, 140);
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          const y = 100 + i * 22;
+          ctx.beginPath();
+          ctx.moveTo(90, y);
+          ctx.lineTo(WORLD_WIDTH - 90, y);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        for (let x = 120; x < WORLD_WIDTH; x += 220) {
+          const y = 88 + ((x / 220) % 2) * 10;
+          ctx.fillRect(x, y, 2, 6);
+        }
+
+        ctx.fillStyle = "#020c1c";
+        ctx.beginPath();
+        ctx.moveTo(500, 220);
+        ctx.lineTo(800, 120);
+        ctx.lineTo(1100, 220);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.moveTo(785, 165);
+        ctx.lineTo(795, 165);
+        ctx.lineTo(805, 190);
+        ctx.lineTo(795, 190);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#021220";
+        ctx.beginPath();
+        ctx.moveTo(2200, 230);
+        ctx.lineTo(2500, 110);
+        ctx.lineTo(2800, 230);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#0c5b2a";
+        ctx.fillRect(0, HEIGHT - 100, WORLD_WIDTH, 60);
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        for (let x = 0; x <= WORLD_WIDTH; x += 80) {
+          ctx.beginPath();
+          ctx.moveTo(x, HEIGHT - 100);
+          ctx.lineTo(x, HEIGHT - 40);
+          ctx.stroke();
+        }
+
+        const boardX = WORLD_WIDTH - 500;
+        const boardY = 95;
+        ctx.fillStyle = "#111827";
+        ctx.fillRect(boardX, boardY, 220, 80);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("BYU vs U", boardX + 110, boardY + 26);
+        ctx.font = "14px system-ui";
+        ctx.fillText("BYU: " + score, boardX + 70, boardY + 52);
+        ctx.fillText("UTES: " + Math.max(0, 5 - lives), boardX + 160, boardY + 52);
+        ctx.textAlign = "left";
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("LAVELL EDWARDS STADIUM", WORLD_WIDTH / 2, 70);
+        ctx.font = "bold 32px system-ui";
+        ctx.fillText("BYU", WORLD_WIDTH / 2, HEIGHT - 55);
+        ctx.textAlign = "left";
+      }
+    }
+
+    function drawPlatforms() {
+      for (const p of platforms) {
+        ctx.fillStyle = "#444b6e";
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.fillStyle = "#002e8a";
+        ctx.fillRect(p.x, p.y, p.width, 4);
+      }
+    }
+
+    function drawCougarTails() {
+      for (const tail of cougarTails) {
+        if (tail.collected) continue;
+        ctx.save();
+        ctx.translate(tail.x + tail.width / 2, tail.y + tail.height / 2);
+        ctx.rotate(-0.15);
+        ctx.fillStyle = "#c48a4a";
+        ctx.fillRect(-tail.width / 2, -tail.height / 2, tail.width, tail.height);
+        ctx.fillStyle = "#e5b16a";
+        ctx.fillRect(-tail.width / 2, -tail.height / 2 - 2, tail.width, tail.height / 2);
+        ctx.restore();
+      }
+    }
+
+    function drawBoxes() {
+      for (const b of boxes) {
+        if (!b.used) {
+          ctx.fillStyle = "#f7b733";
+          ctx.fillRect(b.x, b.y, b.width, b.height);
+          ctx.strokeStyle = "#d98a00";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(b.x + 1, b.y + 1, b.width - 2, b.height - 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 18px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("?", b.x + b.width / 2, b.y + b.height / 2 + 1);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+        } else {
+          ctx.fillStyle = "#b0743b";
+          ctx.fillRect(b.x, b.y, b.width, b.height);
+          ctx.strokeStyle = "#7a4b22";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(b.x + 1, b.y + 1, b.width - 2, b.height - 2);
+        }
+      }
+    }
+
+    function drawPowerups() {
+      for (const p of powerups) {
+        if (!p.active) continue;
+        if (p.type === "tail") {
+          ctx.fillStyle = "#c48a4a";
+          ctx.fillRect(p.x, p.y + 8, p.width, p.height / 2);
+          ctx.fillStyle = "#e5b16a";
+          ctx.fillRect(p.x, p.y, p.width, p.height / 2);
+        } else if (p.type === "big") {
+          ctx.fillStyle = "#002e8a";
+          ctx.fillRect(p.x, p.y, p.width, p.height);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 14px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("B", p.x + p.width / 2, p.y + p.height / 2);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+        } else if (p.type === "life") {
+          ctx.fillStyle = "#00c853";
+          ctx.beginPath();
+          ctx.arc(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 14px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("+", p.x + p.width / 2, p.y + p.height / 2);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+        } else if (p.type === "fire") {
+          ctx.fillStyle = "#ff6d00";
+          ctx.beginPath();
+          ctx.moveTo(p.x + p.width / 2, p.y);
+          ctx.lineTo(p.x + p.width, p.y + p.height);
+          ctx.lineTo(p.x, p.y + p.height);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawEnemies() {
+      const t = performance.now();
+      for (const e of enemies) {
+        if (!e.active) continue;
+
+        if (e.type === "uofu") {
+          const bounce = Math.sin(t / 200 + e.x / 60) * 2;
+          const bodyY = e.y + bounce;
+
+          ctx.fillStyle = "#b00000";
+          ctx.beginPath();
+          ctx.roundRect(e.x, bodyY, e.width, e.height, 8);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(e.x + 10, bodyY + 10, 4, 0, Math.PI * 2);
+          ctx.arc(e.x + e.width - 10, bodyY + 10, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#000000";
+          ctx.beginPath();
+          ctx.arc(e.x + 10, bodyY + 10, 2, 0, Math.PI * 2);
+          ctx.arc(e.x + e.width - 10, bodyY + 10, 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#7f0000";
+          ctx.beginPath();
+          ctx.moveTo(e.x + 6, bodyY);
+          ctx.lineTo(e.x + 2, bodyY - 6);
+          ctx.lineTo(e.x + 10, bodyY);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(e.x + e.width - 6, bodyY);
+          ctx.lineTo(e.x + e.width - 2, bodyY - 6);
+          ctx.lineTo(e.x + e.width - 10, bodyY);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 16px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("U", e.x + e.width / 2, bodyY + e.height - 10);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+        } else if (e.type === "flame") {
+          const flicker = Math.sin(t / 120) * 4;
+          ctx.fillStyle = "#ffcc66";
+          ctx.fillRect(e.x, e.y + flicker * 0.1, e.width, e.height);
+          const numFlames = 4;
+          for (let i = 0; i < numFlames; i++) {
+            const fx = e.x + (i + 0.5) * (e.width / numFlames);
+            const fy = e.y + flicker * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(fx, fy);
+            ctx.lineTo(fx - 8, fy - 18);
+            ctx.lineTo(fx + 8, fy - 18);
+            ctx.closePath();
+            ctx.fillStyle = "#ff6600";
+            ctx.fill();
+          }
+        } else if (e.type === "hawk") {
+          // Humanoid Swoop flying like Superman (on belly)
+          const flap = Math.sin(t / 150 + e.x / 80) * 6;
+          const bodyX = e.x;
+          const bodyY = e.y;
+          const bodyW = e.width;
+          const bodyH = e.height;
+
+          ctx.fillStyle = "#c00000";
+          ctx.beginPath();
+          ctx.roundRect(bodyX, bodyY + 6, bodyW, bodyH - 12, 8);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(bodyX + 4, bodyY + 7, bodyW - 8, 3);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 10px system-ui";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("96", bodyX + bodyW / 2, bodyY + bodyH - 8);
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+
+          ctx.fillStyle = "#c00000";
+          ctx.fillRect(bodyX + bodyW - 4, bodyY + 10, 12, 6 - flap * 0.05);
+          ctx.fillRect(bodyX + bodyW - 4, bodyY + 16, 12, 6 + flap * 0.05);
+          ctx.fillStyle = "#d0d0d0";
+          ctx.beginPath();
+          ctx.arc(bodyX + bodyW + 10, bodyY + 12, 3, 0, Math.PI * 2);
+          ctx.arc(bodyX + bodyW + 10, bodyY + 18, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#c00000";
+          ctx.fillRect(bodyX - 10, bodyY + bodyH - 10, 10, 4);
+          ctx.fillRect(bodyX - 10, bodyY + bodyH - 16, 10, 4);
+          ctx.fillStyle = "#d0d0d0";
+          ctx.fillRect(bodyX - 14, bodyY + bodyH - 10, 4, 4);
+          ctx.fillRect(bodyX - 14, bodyY + bodyH - 16, 4, 4);
+
+          const headR = 9;
+          const headCx = bodyX + bodyW + 2;
+          const headCy = bodyY + bodyH / 2;
+          ctx.fillStyle = "#7b4b22";
+          ctx.beginPath();
+          ctx.arc(headCx, headCy, headR, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#f5f5f5";
+          ctx.beginPath();
+          ctx.moveTo(headCx - 4, headCy + 4);
+          ctx.lineTo(headCx + 1, headCy + 10);
+          ctx.lineTo(headCx + 6, headCy + 4);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.arc(headCx - 3, headCy - 2, 2, 0, Math.PI * 2);
+          ctx.arc(headCx + 1, headCy - 1, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#000000";
+          ctx.beginPath();
+          ctx.arc(headCx - 3, headCy - 2, 1, 0, Math.PI * 2);
+          ctx.arc(headCx + 1, headCy - 1, 1, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#ffb300";
+          ctx.beginPath();
+          ctx.moveTo(headCx + 3, headCy + 1);
+          ctx.lineTo(headCx + 11, headCy + 3);
+          ctx.lineTo(headCx + 3, headCy + 5);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawFireballs() {
+      for (const fb of fireballs) {
+        if (!fb.active) continue;
+        ctx.fillStyle = "#ffab00";
+        ctx.beginPath();
+        ctx.arc(fb.x + fb.width / 2, fb.y + fb.height / 2, fb.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawFlagpole() {
+      const poleX = flagpole.x;
+      const poleTopY = flagpole.baseY - flagpole.height;
+
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(poleX, flagpole.baseY);
+      ctx.lineTo(poleX, poleTopY);
+      ctx.stroke();
+
+      const flagWidth = 70;
+      const flagHeight = 32;
+      const flagY = poleTopY + 10;
+
+      if (!flagpole.captured) {
+        ctx.fillStyle = "#b00000";
+        ctx.fillRect(poleX, flagY, flagWidth, flagHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 20px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("U", poleX + flagWidth / 2, flagY + flagHeight / 2);
+      } else {
+        ctx.fillStyle = "#002e8a";
+        ctx.fillRect(poleX, flagY, flagWidth, flagHeight);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("BYU", poleX + flagWidth / 2, flagY + flagHeight / 2);
+      }
+      ctx.textAlign = "left";
+
+      ctx.fillStyle = "#555";
+      ctx.fillRect(poleX - 10, flagpole.baseY - 4, 20, 8);
+    }
+
+    function drawPlayer() {
+      const p = player;
+      const now = performance.now();
+      const invincible = now < p.invincibleUntil;
+      ctx.globalAlpha = invincible && Math.floor(now / 100) % 2 === 0 ? 0.3 : 1;
+
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.ellipse(p.x + p.width / 2, p.y + p.height, p.width / 2, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      let walkPhase = p.animWalk;
+      let legSwing = Math.sin(walkPhase) * 3;
+      let armSwing = Math.sin(walkPhase) * 4;
+      if (!p.onGround) {
+        legSwing = 2;
+        armSwing = 5;
+      }
+
+      const legHeight = 18;
+      ctx.fillStyle = "#001a4d";
+      ctx.fillRect(p.x + 6 + legSwing, p.y + p.height - legHeight - 2, 8, legHeight);
+      ctx.fillRect(p.x + p.width - 14 - legSwing, p.y + p.height - legHeight - 2, 8, legHeight);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(p.x + 5 + legSwing, p.y + p.height - 6, 10, 6);
+      ctx.fillRect(p.x + p.width - 15 - legSwing, p.y + p.height - 6, 10, 6);
+
+      const bodyTop = p.y + 10;
+      const bodyHeight = p.big ? 30 : 24;
+      ctx.fillStyle = "#002e8a";
+      ctx.fillRect(p.x + 5, bodyTop, p.width - 10, bodyHeight);
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(p.x + 5, bodyTop, p.width - 10, bodyHeight);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 11px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("00", p.x + p.width / 2, bodyTop + bodyHeight - 5);
+      ctx.font = "bold 9px system-ui";
+      ctx.fillText("Y", p.x + p.width / 2, bodyTop + 10);
+      ctx.textAlign = "left";
+
+      ctx.fillStyle = "#002e8a";
+      ctx.fillRect(p.x - 2 - armSwing * 0.3, bodyTop + 4, 7, 16);
+      ctx.fillRect(p.x + p.width - 5 + armSwing * 0.3, bodyTop + 4, 7, 16);
+      ctx.fillStyle = "#f0c58a";
+      ctx.fillRect(p.x - 2 - armSwing * 0.3, bodyTop + 16, 7, 6);
+      ctx.fillRect(p.x + p.width - 5 + armSwing * 0.3, bodyTop + 16, 7, 6);
+
+      const headWidth = p.width - 8;
+      const headHeight = 20;
+      const headX = p.x + 4;
+      const headY = p.y - 8;
+
+      ctx.fillStyle = "#f0c58a";
+      ctx.beginPath();
+      ctx.roundRect(headX, headY, headWidth, headHeight, 6);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(headX + 5, headY);
+      ctx.lineTo(headX, headY - 6);
+      ctx.lineTo(headX + 6, headY - 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(headX + headWidth - 5, headY);
+      ctx.lineTo(headX + headWidth, headY - 6);
+      ctx.lineTo(headX + headWidth - 6, headY - 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#e0a86e";
+      ctx.beginPath();
+      ctx.moveTo(headX + 5, headY - 1);
+      ctx.lineTo(headX + 2, headY - 4);
+      ctx.lineTo(headX + 6, headY - 1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(headX + headWidth - 5, headY - 1);
+      ctx.lineTo(headX + headWidth - 2, headY - 4);
+      ctx.lineTo(headX + headWidth - 6, headY - 1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#f7d19c";
+      ctx.beginPath();
+      ctx.roundRect(headX + 6, headY + 8, headWidth - 12, 8, 4);
+      ctx.fill();
+
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(headX + headWidth / 2, headY + 10, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(headX + headWidth / 2 - 3, headY + 12);
+      ctx.lineTo(headX + headWidth / 2 + 3, headY + 12);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(headX + 8, headY + 7, 2.3, 0, Math.PI * 2);
+      ctx.arc(headX + headWidth - 8, headY + 7, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#000000";
+      ctx.beginPath();
+      ctx.arc(headX + 8, headY + 7, 1.2, 0, Math.PI * 2);
+      ctx.arc(headX + headWidth - 8, headY + 7, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#4a321c";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(headX + 5, headY + 4);
+      ctx.lineTo(headX + 10, headY + 3);
+      ctx.moveTo(headX + headWidth - 5, headY + 4);
+      ctx.lineTo(headX + headWidth - 10, headY + 3);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#f0c58a";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(p.x + p.width - 4, p.y + p.height - 22);
+      ctx.quadraticCurveTo(
+        p.x + p.width + 16,
+        p.y + p.height - 30,
+        p.x + p.width + 6,
+        p.y + p.height - 50
+      );
+      ctx.stroke();
+
+      ctx.globalAlpha = 1;
+    }
+
+    function drawGameOverOverlay() {
+      if (!gameOver || gameState !== "level") return;
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.font = "bold 32px system-ui";
+      ctx.fillText("Game Over", WIDTH / 2, HEIGHT / 2 - 20);
+      ctx.font = "16px system-ui";
+      ctx.fillText("Press ENTER to return to Title", WIDTH / 2, HEIGHT / 2 + 16);
+      ctx.textAlign = "left";
+    }
+
+    // ===== TITLE SCREEN =====
+    function getTitleStartButtonRect() {
+      return { x: WIDTH / 2 - 80, y: HEIGHT / 2 + 80, w: 160, h: 50 };
+    }
+
+    function drawMiniCosmo(x, y) {
+      const w = 26;
+      const h = 40;
+
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h, w / 2, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#001a4d";
+      ctx.fillRect(x + 4, y + h - 14, 6, 14);
+      ctx.fillRect(x + w - 10, y + h - 14, 6, 14);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(x + 4, y + h - 4, 8, 4);
+      ctx.fillRect(x + w - 10, y + h - 4, 8, 4);
+
+      ctx.fillStyle = "#002e8a";
+      ctx.fillRect(x + 4, y + 10, w - 8, 18);
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 4, y + 10, w - 8, 18);
+
+      const headW = w - 8;
+      const headX = x + 4;
+      const headY = y - 4;
+      ctx.fillStyle = "#f0c58a";
+      ctx.beginPath();
+      ctx.roundRect(headX, headY, headW, 16, 6);
+      ctx.fill();
+    }
+
+    function drawTitleScreen() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+      grad.addColorStop(0, "#001a4d");
+      grad.addColorStop(1, "#003a99");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#0c5b2a";
+      ctx.fillRect(0, HEIGHT - 120, WIDTH, 80);
+
+      const demoX = 120 + Math.sin(titleTime / 700) * 80;
+      const demoY = HEIGHT - 160;
+      drawMiniCosmo(demoX - 13, demoY);
+
+      ctx.fillStyle = "#b00000";
+      ctx.beginPath();
+      ctx.roundRect(400, HEIGHT - 80, 38, 26, 8);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("U", 419, HEIGHT - 64);
+      ctx.textAlign = "left";
+
+      ctx.fillStyle = "#c00000";
+      ctx.fillRect(610, 120, 60, 10);
+      ctx.fillStyle = "#7b4b22";
+      ctx.beginPath();
+      ctx.arc(670, 125, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.font = "bold 40px system-ui";
+      ctx.fillText("Cosmo's Cougar Run", WIDTH / 2, 120);
+      ctx.font = "20px system-ui";
+      ctx.fillText("BYU vs Utah Showdown", WIDTH / 2, 155);
+      ctx.font = "16px system-ui";
+      ctx.fillText("Press ENTER or click START", WIDTH / 2, HEIGHT / 2 + 40);
+
+      const btn = getTitleStartButtonRect();
+      ctx.fillStyle = "#002e8a";
+      ctx.beginPath();
+      ctx.roundRect(btn.x, btn.y, btn.w, btn.h, 12);
+      ctx.fill();
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 20px system-ui";
+      ctx.fillText("START", WIDTH / 2, btn.y + btn.h / 2 + 6);
+
+      ctx.textAlign = "left";
+    }
+
+    // ===== MAP SCREEN =====
+    function updateMapState() {
+      if (gameState !== "map") return;
+      if (!mapTarget) return;
+
+      const speed = 4;
+      const dx = mapTarget.x - mapCosmo.x;
+      const dy = mapTarget.y - mapCosmo.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 2) {
+        mapCosmo.x = mapTarget.x;
+        mapCosmo.y = mapTarget.y;
+
+        const levelIndex = mapTarget.levelIndex;
+        const pending = pendingAutoEnterLevel;
+        mapTarget = null;
+        if (pending !== null && pending === levelIndex) {
+          pendingAutoEnterLevel = null;
+          startLevel(levelIndex);
+        }
+      } else {
+        mapCosmo.x += (dx / dist) * speed;
+        mapCosmo.y += (dy / dist) * speed;
+      }
+    }
+
+    function drawMapScreen() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+      grad.addColorStop(0, "#001a4d");
+      grad.addColorStop(1, "#003a99");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#021220";
+      ctx.beginPath();
+      ctx.moveTo(0, 260);
+      ctx.lineTo(140, 180);
+      ctx.lineTo(300, 260);
+      ctx.lineTo(520, 190);
+      ctx.lineTo(760, 260);
+      ctx.lineTo(900, 200);
+      ctx.lineTo(900, 500);
+      ctx.lineTo(0, 500);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#d0e4ff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(houseNode.x, houseNode.y);
+      for (const node of mapLevelNodes) {
+        ctx.lineTo(node.x, node.y);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = "#fbbf24";
+      ctx.beginPath();
+      ctx.moveTo(houseNode.x - 18, houseNode.y);
+      ctx.lineTo(houseNode.x, houseNode.y - 24);
+      ctx.lineTo(houseNode.x + 18, houseNode.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#1f2933";
+      ctx.fillRect(houseNode.x - 14, houseNode.y, 28, 20);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(houseNode.x - 4, houseNode.y + 6, 8, 14);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "14px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("Cosmo's House", houseNode.x, houseNode.y - 30);
+
+      for (let i = 0; i < MAX_LEVELS; i++) {
+        const node = mapLevelNodes[i];
+        const unlocked = unlockedLevels[i];
+        const completed = completedLevels[i];
+
+        const outerR = node.r;
+        const innerR = node.r - 4;
+
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, outerR, 0, Math.PI * 2);
+        ctx.fillStyle = completed ? "#22c55e" : unlocked ? "#2563eb" : "#4b5563";
+        ctx.fill();
+
+        if (unlocked) {
+          ctx.strokeStyle = completed ? "#bbf7d0" : "#bfdbfe";
+          ctx.lineWidth = 3;
+        } else {
+          ctx.strokeStyle = "#9ca3af";
+          ctx.lineWidth = 2;
+        }
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, innerR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 16px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), node.x, node.y);
+
+        ctx.font = "12px system-ui";
+        ctx.textBaseline = "top";
+        ctx.fillText("Level " + (i + 1), node.x, node.y + outerR + 6);
+      }
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#e5e7eb";
+      ctx.font = "16px system-ui";
+      ctx.fillText("Click an unlocked level to play", WIDTH / 2, 40);
+      ctx.textAlign = "left";
+
+      drawMiniCosmo(mapCosmo.x - 13, mapCosmo.y - 46);
+    }
+
+    // ===== VICTORY SCREEN =====
+    function drawSwoopFlying(x, y, t) {
+      const bodyW = 60;
+      const bodyH = 30;
+      const flap = Math.sin(t / 150) * 6;
+
+      const bodyX = x;
+      const bodyY = y;
+
+      ctx.fillStyle = "#c00000";
+      ctx.beginPath();
+      ctx.roundRect(bodyX, bodyY + 6, bodyW, bodyH - 12, 8);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(bodyX + 4, bodyY + 7, bodyW - 8, 3);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 10px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("96", bodyX + bodyW / 2, bodyY + bodyH - 8);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+
+      ctx.fillStyle = "#c00000";
+      ctx.fillRect(bodyX + bodyW - 4, bodyY + 10, 12, 6 - flap * 0.05);
+      ctx.fillRect(bodyX + bodyW - 4, bodyY + 16, 12, 6 + flap * 0.05);
+      ctx.fillStyle = "#d0d0d0";
+      ctx.beginPath();
+      ctx.arc(bodyX + bodyW + 10, bodyY + 12, 3, 0, Math.PI * 2);
+      ctx.arc(bodyX + bodyW + 10, bodyY + 18, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#c00000";
+      ctx.fillRect(bodyX - 10, bodyY + bodyH - 10, 10, 4);
+      ctx.fillRect(bodyX - 10, bodyY + bodyH - 16, 10, 4);
+      ctx.fillStyle = "#d0d0d0";
+      ctx.fillRect(bodyX - 14, bodyY + bodyH - 10, 4, 4);
+      ctx.fillRect(bodyX - 14, bodyY + bodyH - 16, 4, 4);
+
+      const headR = 9;
+      const headCx = bodyX + bodyW + 2;
+      const headCy = bodyY + bodyH / 2;
+      ctx.fillStyle = "#7b4b22";
+      ctx.beginPath();
+      ctx.arc(headCx, headCy, headR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f5f5f5";
+      ctx.beginPath();
+      ctx.moveTo(headCx - 4, headCy + 4);
+      ctx.lineTo(headCx + 1, headCy + 10);
+      ctx.lineTo(headCx + 6, headCy + 4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(headCx - 3, headCy - 2, 2, 0, Math.PI * 2);
+      ctx.arc(headCx + 1, headCy - 1, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#000000";
+      ctx.beginPath();
+      ctx.arc(headCx - 3, headCy - 2, 1, 0, Math.PI * 2);
+      ctx.arc(headCx + 1, headCy - 1, 1, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffb300";
+      ctx.beginPath();
+      ctx.moveTo(headCx + 3, headCy + 1);
+      ctx.lineTo(headCx + 11, headCy + 3);
+      ctx.lineTo(headCx + 3, headCy + 5);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawVictoryScreen(timestamp) {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+      grad.addColorStop(0, "#001a4d");
+      grad.addColorStop(1, "#003a99");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx.fillStyle = "#0c5b2a";
+      ctx.fillRect(0, HEIGHT - 120, WIDTH, 80);
+
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(140, HEIGHT - 120);
+      ctx.lineTo(140, 120);
+      ctx.stroke();
+      ctx.fillStyle = "#002e8a";
+      ctx.fillRect(140, 130, 100, 45);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 20px system-ui";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("BYU", 190, 153);
+
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(WIDTH - 140, HEIGHT - 130);
+      ctx.lineTo(WIDTH - 140, 140);
+      ctx.stroke();
+      ctx.fillStyle = "#b00000";
+      ctx.fillRect(WIDTH - 140, 150, 80, 36);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 18px system-ui";
+      ctx.fillText("U", WIDTH - 100, 168);
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+
+      drawMiniCosmo(WIDTH / 2 - 30, HEIGHT - 180);
+
+      ctx.fillStyle = "#b00000";
+      ctx.beginPath();
+      ctx.roundRect(WIDTH / 2 - 140, HEIGHT - 90, 38, 26, 8);
+      ctx.roundRect(WIDTH / 2 + 90, HEIGHT - 90, 38, 26, 8);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("U", WIDTH / 2 - 121, HEIGHT - 74);
+      ctx.fillText("U", WIDTH / 2 + 109, HEIGHT - 74);
+      ctx.textAlign = "left";
+
+      const swoopX = 300 + Math.sin(timestamp / 600) * 80;
+      drawSwoopFlying(swoopX, 120, timestamp);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.font = "bold 38px system-ui";
+      ctx.fillText("CONGRATULATIONS!", WIDTH / 2, 120);
+      ctx.font = "22px system-ui";
+      ctx.fillText("Cosmo wins the rivalry game!", WIDTH / 2, 160);
+      ctx.font = "16px system-ui";
+      ctx.fillText("You cleared all 5 levels.", WIDTH / 2, 190);
+      ctx.fillText("Press ENTER to return to Title.", WIDTH / 2, 215);
+      ctx.textAlign = "left";
+    }
+
+    // ===== MAIN LOOP =====
+    function gameLoop(timestamp) {
+      if (gameState === "title") {
+        titleTime = timestamp;
+        drawTitleScreen();
+      } else if (gameState === "map") {
+        updateMapState();
+        drawMapScreen();
+      } else if (gameState === "level") {
+        handlePlayerMovement();
+        updateEnemies();
+        updatePowerups();
+        updateFireballs();
+        checkCollisions();
+        animateSlide();
+
+        if (!gameOver && !levelComplete) {
+          if (Math.abs(player.vx) > 0.2 && player.onGround) {
+            player.animWalk += Math.abs(player.vx) * 0.15;
+          } else {
+            player.animWalk *= 0.9;
+          }
+        }
+
+        cameraX = player.x - WIDTH / 2;
+        if (cameraX < 0) cameraX = 0;
+        if (cameraX > WORLD_WIDTH - WIDTH) cameraX = WORLD_WIDTH - WIDTH;
+
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+        ctx.save();
+        ctx.translate(-cameraX, 0);
+
+        drawBackgroundWorld(getCurrentTheme());
+        drawPlatforms();
+        drawCougarTails();
+        drawBoxes();
+        drawPowerups();
+        drawEnemies();
+        drawFireballs();
+        drawFlagpole();
+        drawPlayer();
+
+        ctx.restore();
+        drawGameOverOverlay();
+      } else if (gameState === "victory") {
+        drawVictoryScreen(timestamp);
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Init
+    resetFullGameState();
+    goToTitle();
+    updateHud();
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
